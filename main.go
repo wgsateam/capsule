@@ -70,8 +70,10 @@ func main() {
 	var enableLeaderElection bool
 	var forceTenantPrefix bool
 	var v bool
+	var capsuleGroup string
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&capsuleGroup, "capsule-user-group", capsulev1alpha1.GroupVersion.Group, "Name of the group for capsule users")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -119,7 +121,7 @@ func main() {
 	//webhooks
 	wl := make([]webhook.Webhook, 0)
 	wl = append(wl, &ingress.ExtensionIngress{}, &ingress.NetworkIngress{}, pvc.Webhook{}, &owner_reference.Webhook{}, &namespace_quota.Webhook{}, network_policies.Webhook{}, tenant_prefix.Webhook{ForceTenantPrefix: forceTenantPrefix})
-	err = webhook.Register(mgr, wl...)
+	err = webhook.Register(mgr, capsuleGroup, wl...)
 	if err != nil {
 		setupLog.Error(err, "unable to setup webhooks")
 		os.Exit(1)
