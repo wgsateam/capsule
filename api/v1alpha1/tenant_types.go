@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	calico "github.com/projectcalico/libcalico-go/lib/apis/v3"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,8 @@ type TenantSpec struct {
 	NamespaceQuota  NamespaceQuota                   `json:"namespaceQuota"`
 	NetworkPolicies []networkingv1.NetworkPolicySpec `json:"networkPolicies,omitempty"`
 	LimitRanges     []corev1.LimitRangeSpec          `json:"limitRanges"`
+	// +kubebuilder:validation:Required
+	GlobalNetworkPolicy calico.GlobalNetworkPolicySpec `json:"globalNetworkPolicy"`
 	// +kubebuilder:validation:Optional
 	ResourceQuota []corev1.ResourceQuotaSpec `json:"resourceQuotas"`
 }

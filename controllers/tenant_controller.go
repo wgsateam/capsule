@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	capsulev1alpha1 "github.com/clastix/capsule/api/v1alpha1"
+	calico "github.com/projectcalico/libcalico-go/lib/apis/v3"
 )
 
 // TenantReconciler reconciles a Tenant object
@@ -59,6 +60,7 @@ func (r *TenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.LimitRange{}).
 		Owns(&corev1.ResourceQuota{}).
 		Owns(&rbacv1.RoleBinding{}).
+		Owns(&calico.GlobalNetworkPolicy{}).
 		Complete(r)
 }
 
@@ -419,6 +421,31 @@ func (r *TenantReconciler) syncNamespaces(tenant *capsulev1alpha1.Tenant) (err e
 		}
 	}
 	return
+}
+
+func (r *TenantReconciler) syncCalicoGlobalPolicies(tenant *capsulev1alpha1.Tenant) error {
+	tl, err := capsulev1alpha1.GetTypeLabel(&capsulev1alpha1.Tenant{})
+	if err != nil {
+		return err
+	}
+	spec := tenant.Spec.GlobalNetworkPolicy
+	t := &calico.GlobalNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("capsule-%s", tenant.Name),
+			Labels: map[string]string{
+				tl: tenant.Name,
+			},
+		},
+	}
+	res, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, t, func() (err error) {
+		t.Spec = spec
+		return controllerutil.SetControllerReference(tenant, t, r.Scheme)
+	})
+	r.Log.Info("Calico Global Network Policy sync result: "+string(res), "name", t.Name)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Ensuring all the NetworkPolicies are applied to each Namespace handled by the Tenant.

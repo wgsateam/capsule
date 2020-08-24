@@ -176,6 +176,7 @@ func (in *TenantSpec) DeepCopyInto(out *TenantSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.GlobalNetworkPolicy.DeepCopyInto(&out.GlobalNetworkPolicy)
 	if in.ResourceQuota != nil {
 		in, out := &in.ResourceQuota, &out.ResourceQuota
 		*out = make([]corev1.ResourceQuotaSpec, len(*in))
