@@ -27,6 +27,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -35,6 +36,7 @@ import (
 	"github.com/clastix/capsule/controllers"
 	"github.com/clastix/capsule/controllers/secret"
 	"github.com/clastix/capsule/pkg/indexer"
+	"github.com/clastix/capsule/pkg/rbac"
 	"github.com/clastix/capsule/pkg/webhook"
 	"github.com/clastix/capsule/pkg/webhook/ingress"
 	"github.com/clastix/capsule/pkg/webhook/namespace_quota"
@@ -102,6 +104,15 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if err = (rbac.RBACManager{
+		ClientConfig: mgr.GetConfig(),
+		CapsuleGroup: capsuleGroup,
+		Log:          setupLog,
+	}).SetupCapsuleRoles(); err != nil {
+		setupLog.Error(err, "unable to create cluster roles")
 		os.Exit(1)
 	}
 
