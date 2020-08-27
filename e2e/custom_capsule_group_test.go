@@ -53,12 +53,12 @@ var _ = Describe("creating a Namespace as Tenant owner with custom --capsule-gro
 	})
 	It("should fail", func() {
 		CapsuleClusterGroupParamShouldBeUpdated("test")
-		ns := NewNamespace("new-namespace")
+		ns := NewNamespace("cg-namespace-fail")
 		NamespaceCreationShouldNotSucceed(ns, tnt)
 	})
 	It("should succeed and be available in Tenant namespaces list", func() {
 		CapsuleClusterGroupParamShouldBeUpdated("capsule.clastix.io")
-		ns := NewNamespace("new-namespace")
+		ns := NewNamespace("cg-namespace")
 		NamespaceCreationShouldSucceed(ns, tnt)
 		NamespaceShouldBeManagedByTenant(ns, tnt)
 
