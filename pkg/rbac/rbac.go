@@ -59,10 +59,11 @@ func (r RBACManager) SetupCapsuleRoles() error {
 		}
 	}
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-	provisionerClusterRoleBinding.RoleRef = rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "ClusterRole",
-		Name:     r.CapsuleGroup,
+	provisionerClusterRoleBinding.Subjects = []rbacv1.Subject{
+		{
+			Kind: "Group",
+			Name: r.CapsuleGroup,
+		},
 	}
 	r.Log.Info("setting up ClusterRoleBindings", "ClusterRoleBinding", provisionerRoleName)
 	if err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: provisionerRoleName}, clusterRoleBinding); err != nil {
