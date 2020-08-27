@@ -65,8 +65,8 @@ func (r RBACManager) SetupCapsuleRoles() error {
 			Name: r.CapsuleGroup,
 		},
 	}
-	r.Log.Info("setting up ClusterRoleBindings", "ClusterRoleBinding", provisionerRoleName)
-	if err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: provisionerRoleName}, clusterRoleBinding); err != nil {
+	r.Log.Info("setting up ClusterRoleBindings", "ClusterRoleBinding", ProvisionerRoleName)
+	if err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: ProvisionerRoleName}, clusterRoleBinding); err != nil {
 		if errors.IsNotFound(err) {
 			if err = k8sClient.Create(context.TODO(), provisionerClusterRoleBinding); err != nil {
 				return err

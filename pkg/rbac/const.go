@@ -22,15 +22,15 @@ import (
 )
 
 const (
-	provisionerRoleName = "capsule-namespace:provisioner"
-	deleterRoleName     = "capsule-namespace:deleter"
+	ProvisionerRoleName = "capsule-namespace:provisioner"
+	DeleterRoleName     = "capsule-namespace:deleter"
 )
 
 var (
 	clusterRoles = map[string]*rbacv1.ClusterRole{
-		provisionerRoleName: {
+		ProvisionerRoleName: {
 			ObjectMeta: metav1.ObjectMeta{
-				Name: provisionerRoleName,
+				Name: ProvisionerRoleName,
 			},
 			Rules: []rbacv1.PolicyRule{
 				{
@@ -40,9 +40,9 @@ var (
 				},
 			},
 		},
-		deleterRoleName: {
+		DeleterRoleName: {
 			ObjectMeta: metav1.ObjectMeta{
-				Name: deleterRoleName,
+				Name: DeleterRoleName,
 			},
 			Rules: []rbacv1.PolicyRule{
 				{
@@ -56,11 +56,11 @@ var (
 
 	provisionerClusterRoleBinding = &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: provisionerRoleName,
+			Name: ProvisionerRoleName,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			Name:     provisionerRoleName,
+			Name:     ProvisionerRoleName,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
