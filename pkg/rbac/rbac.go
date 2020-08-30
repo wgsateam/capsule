@@ -24,33 +24,31 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type RBACManager struct {
-	ClientConfig *rest.Config
+type Manager struct {
+	client       client.Client
 	CapsuleGroup string
 	Log          logr.Logger
 }
 
-func (r RBACManager) SetupCapsuleRoles() error {
-	// Create client as mgr.Client won't be availiable for us until we call mgr.Start
-	k8sClient, err := client.New(r.ClientConfig, client.Options{})
-	if err != nil {
-		r.Log.Error(err, "Unable to create k8s client")
-		return err
-	}
+func (r *Manager) InjectClient(client client.Client) error {
+	r.client = client
+	return nil
+}
+
+func (r *Manager) Start(<-chan struct{}) (err error) {
 	for roleName, role := range clusterRoles {
 		r.Log.Info("setting up ClusterRoles", "ClusterRole", roleName)
 		clusterRole := &rbacv1.ClusterRole{}
-		if err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: roleName}, clusterRole); err != nil {
+		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: roleName}, clusterRole); err != nil {
 			if errors.IsNotFound(err) {
 				clusterRole.ObjectMeta = role.ObjectMeta
 			}
 		}
-		_, err = controllerutil.CreateOrUpdate(context.TODO(), k8sClient, clusterRole, func() error {
+		_, err = controllerutil.CreateOrUpdate(context.TODO(), r.client, clusterRole, func() error {
 			clusterRole.Rules = role.Rules
 			return nil
 		})
@@ -66,20 +64,20 @@ func (r RBACManager) SetupCapsuleRoles() error {
 		},
 	}
 	r.Log.Info("setting up ClusterRoleBindings", "ClusterRoleBinding", ProvisionerRoleName)
-	if err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: ProvisionerRoleName}, clusterRoleBinding); err != nil {
+	if err = r.client.Get(context.TODO(), types.NamespacedName{Name: ProvisionerRoleName}, clusterRoleBinding); err != nil {
 		if errors.IsNotFound(err) {
-			if err = k8sClient.Create(context.TODO(), provisionerClusterRoleBinding); err != nil {
+			if err = r.client.Create(context.TODO(), provisionerClusterRoleBinding); err != nil {
 				return err
 			}
 		}
 	} else {
 		// RoleRef is immutable, so we need to delete and recreate ClusterRoleBinding if it changed
 		if !equality.Semantic.DeepDerivative(provisionerClusterRoleBinding.RoleRef, clusterRoleBinding.RoleRef) {
-			if err = k8sClient.Delete(context.TODO(), clusterRoleBinding); err != nil {
+			if err = r.client.Delete(context.TODO(), clusterRoleBinding); err != nil {
 				return err
 			}
 		}
-		_, err = controllerutil.CreateOrUpdate(context.TODO(), k8sClient, clusterRoleBinding, func() error {
+		_, err = controllerutil.CreateOrUpdate(context.TODO(), r.client, clusterRoleBinding, func() error {
 			clusterRoleBinding.Subjects = provisionerClusterRoleBinding.Subjects
 			return nil
 		})

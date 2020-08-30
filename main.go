@@ -107,11 +107,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (rbac.RBACManager{
-		ClientConfig: mgr.GetConfig(),
+	rbacMngr := &rbac.Manager{
 		CapsuleGroup: capsuleGroup,
-		Log:          setupLog,
-	}).SetupCapsuleRoles(); err != nil {
+		Log:          ctrl.Log.WithName("controllers").WithName("Rbac"),
+	}
+	err = mgr.Add(rbacMngr)
+	if err != nil {
 		setupLog.Error(err, "unable to create cluster roles")
 		os.Exit(1)
 	}
