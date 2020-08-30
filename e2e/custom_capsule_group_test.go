@@ -52,11 +52,14 @@ var _ = Describe("creating a Namespace as Tenant owner with custom --capsule-gro
 		Expect(k8sClient.Delete(context.TODO(), tnt)).Should(Succeed())
 	})
 	It("should fail", func() {
+		args := append(defaulManagerPodArgs, []string{"--capsule-user-group=test"}...)
+		ModifyCapsuleManagerPodArgs(args)
 		CapsuleClusterGroupParamShouldBeUpdated("test")
 		ns := NewNamespace("cg-namespace-fail")
 		NamespaceCreationShouldNotSucceed(ns, tnt)
 	})
 	It("should succeed and be available in Tenant namespaces list", func() {
+		ModifyCapsuleManagerPodArgs(defaulManagerPodArgs)
 		CapsuleClusterGroupParamShouldBeUpdated("capsule.clastix.io")
 		ns := NewNamespace("cg-namespace")
 		NamespaceCreationShouldSucceed(ns, tnt)

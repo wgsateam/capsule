@@ -20,7 +20,6 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -29,12 +28,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/clastix/capsule/api/v1alpha1"
 )
 
 const (
-	defaultTimeoutInterval = 20 * time.Second
+	defaultTimeoutInterval = 25 * time.Second
 	defaultPollInterval    = time.Second
 )
 
@@ -70,11 +70,6 @@ func NamespaceShouldBeManagedByTenant(ns *corev1.Namespace, t *v1alpha1.Tenant) 
 }
 
 func CapsuleClusterGroupParamShouldBeUpdated(capsuleClusterGroup string) {
-	args := append(defaulManagerPodArgs, []string{fmt.Sprintf("--capsule-user-group=%s", capsuleClusterGroup)}...)
-
-	err := ModifyCapsuleManagerPodArgs(args)
-	Expect(err).ToNot(HaveOccurred())
-
 	capsuleCRB := &rbacv1.ClusterRoleBinding{}
 
 	Eventually(func() string {
@@ -84,7 +79,7 @@ func CapsuleClusterGroupParamShouldBeUpdated(capsuleClusterGroup string) {
 
 }
 
-func ModifyCapsuleManagerPodArgs(args []string) error {
+func ModifyCapsuleManagerPodArgs(args []string) {
 	capsuleDeployment := &appsv1.Deployment{}
 	k8sClient.Get(context.TODO(), types.NamespacedName{Name: capsuleDeploymentName, Namespace: capsuleNamespace}, capsuleDeployment)
 	for i, container := range capsuleDeployment.Spec.Template.Spec.Containers {
@@ -93,5 +88,27 @@ func ModifyCapsuleManagerPodArgs(args []string) error {
 		}
 	}
 	capsuleDeployment.ResourceVersion = ""
-	return k8sClient.Update(context.TODO(), capsuleDeployment)
+	err := k8sClient.Update(context.TODO(), capsuleDeployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() []string {
+		var containerArgs []string
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: capsuleDeploymentName, Namespace: capsuleNamespace}, capsuleDeployment)).Should(Succeed())
+		for i, container := range capsuleDeployment.Spec.Template.Spec.Containers {
+			if container.Name == capsuleManagerContainerName {
+				containerArgs = capsuleDeployment.Spec.Template.Spec.Containers[i].Args
+			}
+		}
+		return containerArgs
+	}, defaultTimeoutInterval, defaultPollInterval).Should(HaveLen(len(args)))
+
+	pl := &corev1.PodList{}
+	Eventually(func() []corev1.Pod {
+		Expect(k8sClient.List(context.TODO(), pl, client.MatchingLabels{"control-plane": "controller-manager"})).Should(Succeed())
+		return pl.Items
+	}, defaultTimeoutInterval, defaultPollInterval).Should(HaveLen(2))
+	Eventually(func() []corev1.Pod {
+		Expect(k8sClient.List(context.TODO(), pl, client.MatchingLabels{"control-plane": "controller-manager"})).Should(Succeed())
+		return pl.Items
+	}, defaultTimeoutInterval, defaultPollInterval).Should(HaveLen(1))
 }
