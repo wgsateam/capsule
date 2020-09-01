@@ -1,0 +1,56 @@
+# -*- mode: gitlab-ci; -*-
+---
+services:
+  - docker:18.09.9-dind
+
+stages:
+  - release
+  #- build-helm
+  #- release-helm
+
+variables:
+  CONTAINER_LATEST_IMAGE: ${JFROG_DOCKER_URI}/${JFROG_DOCKER_REPO}/${CI_PROJECT_NAME}:latest
+  CONTAINER_RELEASE_IMAGE: ${JFROG_DOCKER_URI}/${JFROG_DOCKER_REPO}/${CI_PROJECT_NAME}:${CI_COMMIT_TAG}
+
+release:
+  image: docker:18.09.9
+  stage: release
+  tags:
+    - docker
+  script:
+    - docker login --username "${JFROG_API_USER}" --password "${JFROG_API_KEY}" "${JFROG_DOCKER_URI}"
+    - docker pull ${CONTAINER_LATEST_IMAGE} || true
+    - docker build --cache-from ${CONTAINER_LATEST_IMAGE} --tag ${CONTAINER_LATEST_IMAGE} --tag ${CONTAINER_RELEASE_IMAGE} --build-arg=VERSION=${CI_COMMIT_TAG} -f Dockerfile .
+    - docker push ${CONTAINER_LATEST_IMAGE}
+    - docker push ${CONTAINER_RELEASE_IMAGE}
+  only:
+    - tags
+
+
+#build-helm:
+#  image: devth/helm:v3.2.4
+#  stage: build-helm
+#  tags:
+#    - docker
+#  script:
+#    - helm package charts/teamsapi
+#  artifacts:
+#    paths:
+#      - teamsapi*.tgz
+#    expire_in: 1 day
+#  only:
+#    changes:
+#      - charts/**/*
+#
+#release-helm:
+#  image: curlimages/curl:7.71.1
+#  stage: release-helm
+#  dependencies: 
+#    - build-helm
+#  tags:
+#    - docker
+#  script:
+#    - curl -H "X-JFrog-Art-Api:${JFROG_API_KEY}" -X PUT "https://artifactory.wgdp.io/dba-helm/" -T $(ls | grep teamsapi-)
+#  only:
+#    changes:
+#      - charts/**/*
