@@ -138,7 +138,7 @@ func main() {
 
 	//webhooks
 	wl := make([]webhook.Webhook, 0)
-	wl = append(wl, &ingress.ExtensionIngress{}, &ingress.NetworkIngress{}, pvc.Webhook{}, &owner_reference.Webhook{}, &namespace_quota.Webhook{}, network_policies.Webhook{}, tenant_prefix.Webhook{ForceTenantPrefix: forceTenantPrefix, ProtectedNamespacesRegex: protectedNamespaceRegexp}, &tenantName.Webhook{})
+	wl = append(wl, &ingress.ExtensionIngress{}, &ingress.NetworkIngress{}, pvc.Webhook{}, &owner_reference.Webhook{ForceTenantPrefix: forceTenantPrefix}, &namespace_quota.Webhook{}, network_policies.Webhook{}, tenant_prefix.Webhook{ForceTenantPrefix: forceTenantPrefix, ProtectedNamespacesRegex: protectedNamespaceRegexp}, &tenantName.Webhook{})
 	err = webhook.Register(mgr, capsuleGroup, wl...)
 	if err != nil {
 		setupLog.Error(err, "unable to setup webhooks")
