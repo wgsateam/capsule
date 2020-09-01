@@ -29,15 +29,15 @@ import (
 	"github.com/clastix/capsule/api/v1alpha1"
 )
 
-var _ = Describe("creating a Namespace as Tenant owner with custom --capsule-group", func() {
+var _ = Describe("creating a Namespace with group Tenant owner", func() {
 	tnt := &v1alpha1.Tenant{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenantassignedcustomgroup",
+			Name: "tenantgroupowner",
 		},
 		Spec: v1alpha1.TenantSpec{
 			Owner: v1alpha1.OwnerSpec{
 				Name: "alice",
-				Kind: "User",
+				Kind: "Group",
 			},
 			StorageClasses: []string{},
 			IngressClasses: []string{},
@@ -54,19 +54,10 @@ var _ = Describe("creating a Namespace as Tenant owner with custom --capsule-gro
 	JustAfterEach(func() {
 		Expect(k8sClient.Delete(context.TODO(), tnt)).Should(Succeed())
 	})
-	It("should fail", func() {
-		args := append(defaulManagerPodArgs, []string{"--capsule-user-group=test"}...)
-		ModifyCapsuleManagerPodArgs(args)
-		CapsuleClusterGroupParamShouldBeUpdated("test", podRecreationTimeoutInterval)
-		ns := NewNamespace("cg-namespace-fail")
-		NamespaceCreationShouldNotSucceed(ns, tnt, podRecreationTimeoutInterval)
-	})
 	It("should succeed and be available in Tenant namespaces list", func() {
-		ModifyCapsuleManagerPodArgs(defaulManagerPodArgs)
-		CapsuleClusterGroupParamShouldBeUpdated("capsule.clastix.io", podRecreationTimeoutInterval)
-		ns := NewNamespace("cg-namespace")
-		NamespaceCreationShouldSucceed(ns, tnt, podRecreationTimeoutInterval)
-		NamespaceShouldBeManagedByTenant(ns, tnt, podRecreationTimeoutInterval)
-
+		ns := NewNamespace("gto-namespace")
+		NamespaceCreationShouldSucceed(ns, tnt, defaultTimeoutInterval)
+		NamespaceShouldBeManagedByTenant(ns, tnt, defaultTimeoutInterval)
+		GroupShouldBeUsedInTenantRoleBinding(ns, tnt, defaultTimeoutInterval)
 	})
 })

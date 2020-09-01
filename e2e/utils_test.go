@@ -77,7 +77,17 @@ func CapsuleClusterGroupParamShouldBeUpdated(capsuleClusterGroup string, timeout
 		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: "capsule-namespace:provisioner"}, capsuleCRB)).Should(Succeed())
 		return capsuleCRB.Subjects[0].Name
 	}, timeout, defaultPollInterval).Should(BeIdenticalTo(capsuleClusterGroup))
+}
 
+func GroupShouldBeUsedInTenantRoleBinding(ns *corev1.Namespace, t *v1alpha1.Tenant, timeout time.Duration) {
+	for _, roleBindingName := range tenantRoleBindingNames {
+		tenantRoleBindig := &rbacv1.RoleBinding{}
+		Eventually(func() string {
+			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: roleBindingName, Namespace: ns.GetName()}, tenantRoleBindig)).Should(Succeed())
+			return tenantRoleBindig.Subjects[0].Kind
+		}, timeout, defaultPollInterval).Should(BeIdenticalTo("Group"))
+
+	}
 }
 
 func ModifyCapsuleManagerPodArgs(args []string) {

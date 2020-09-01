@@ -19,10 +19,11 @@ package owner_reference
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,10 +36,12 @@ import (
 
 // +kubebuilder:webhook:path=/mutate-v1-namespace-owner-reference,mutating=true,failurePolicy=fail,groups="",resources=namespaces,verbs=create,versions=v1,name=owner.namespace.capsule.clastix.io
 
-type Webhook struct{}
+type Webhook struct {
+	ForceTenantPrefix bool
+}
 
 func (o Webhook) GetHandler() webhook.Handler {
-	return &handler{}
+	return &handler{forceTenantPrefix: o.ForceTenantPrefix}
 }
 
 func (o Webhook) GetName() string {
@@ -50,6 +53,7 @@ func (o Webhook) GetPath() string {
 }
 
 type handler struct {
+	forceTenantPrefix bool
 }
 
 func (r *handler) OnCreate(ctx context.Context, req admission.Request, clt client.Client, decoder *admission.Decoder) admission.Response {
@@ -72,7 +76,7 @@ func (r *handler) OnCreate(ctx context.Context, req admission.Request, clt clien
 				return admission.Errored(http.StatusBadRequest, err)
 			}
 			// Tenant owner must adhere to user that asked for NS creation
-			if t.Spec.Owner != req.UserInfo.Username {
+			if !r.isTenantOwner(t.Spec.Owner, req) {
 				return admission.Denied("Cannot assign the desired namespace to a non-owned Tenant")
 			}
 			// Patching the response
@@ -81,15 +85,40 @@ func (r *handler) OnCreate(ctx context.Context, req admission.Request, clt clien
 
 	}
 
-	tl := &v1alpha1.TenantList{}
-	if err := clt.List(ctx, tl, client.MatchingFieldsSelector{
-		Selector: fields.OneTermEqualSelector(".spec.owner", req.UserInfo.Username),
-	}); err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
+	// assigning namespace to Tenant in case of --force-tenant-prefix flag enabled
+	if r.forceTenantPrefix {
+		tenantName := strings.Split(ns.GetName(), "-")[0]
+		// retrieving the selected Tenant
+		t := &v1alpha1.Tenant{}
+		if err := clt.Get(ctx, types.NamespacedName{Name: tenantName}, t); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+		// Tenant owner must adhere to user that asked for NS creation
+		if !r.isTenantOwner(t.Spec.Owner, req) {
+			return admission.Denied("Cannot assign the desired namespace to a non-owned Tenant")
+		}
+		// Patching the response
+		return r.patchResponseForOwnerRef(t, ns)
 	}
 
+	tl, err := r.listTenantsForOwner(ctx, "User", req.UserInfo.Username, clt)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
 	if len(tl.Items) > 0 {
 		return r.patchResponseForOwnerRef(&tl.Items[0], ns)
+	}
+
+	if len(req.UserInfo.Groups) > 0 {
+		for _, group := range req.UserInfo.Groups {
+			tl, err := r.listTenantsForOwner(ctx, "Group", group, clt)
+			if err != nil {
+				return admission.Errored(http.StatusBadRequest, err)
+			}
+			if len(tl.Items) > 0 {
+				return r.patchResponseForOwnerRef(&tl.Items[0], ns)
+			}
+		}
 	}
 
 	return admission.Denied("You do not have any Tenant assigned: please, reach out the system administrators")
@@ -103,6 +132,15 @@ func (r *handler) OnUpdate(ctx context.Context, req admission.Request, client cl
 	return admission.Denied("Capsule user cannot update a Namespace")
 }
 
+func (r *handler) listTenantsForOwner(ctx context.Context, ownerKind string, ownerName string, clt client.Client) (*v1alpha1.TenantList, error) {
+	tl := &v1alpha1.TenantList{}
+	f := client.MatchingFields{
+		".spec.owner.ownerkind": fmt.Sprintf("%s:%s", ownerKind, ownerName),
+	}
+	err := clt.List(ctx, tl, f)
+	return tl, err
+}
+
 func (r *handler) patchResponseForOwnerRef(tenant *v1alpha1.Tenant, ns *corev1.Namespace) admission.Response {
 	scheme := runtime.NewScheme()
 	_ = v1alpha1.AddToScheme(scheme)
@@ -114,4 +152,18 @@ func (r *handler) patchResponseForOwnerRef(tenant *v1alpha1.Tenant, ns *corev1.N
 	}
 	c, _ := json.Marshal(ns)
 	return admission.PatchResponseFromRaw(o, c)
+}
+
+func (r *handler) isTenantOwner(os v1alpha1.OwnerSpec, req admission.Request) bool {
+	if os.Kind == "User" && req.UserInfo.Username == os.Name {
+		return true
+	}
+	if os.Kind == "Group" {
+		for _, group := range req.UserInfo.Groups {
+			if group == os.Name {
+				return true
+			}
+		}
+	}
+	return false
 }

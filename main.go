@@ -44,6 +44,7 @@ import (
 	"github.com/clastix/capsule/pkg/webhook/network_policies"
 	"github.com/clastix/capsule/pkg/webhook/owner_reference"
 	"github.com/clastix/capsule/pkg/webhook/pvc"
+	tenantName "github.com/clastix/capsule/pkg/webhook/tenant_name"
 	"github.com/clastix/capsule/pkg/webhook/tenant_prefix"
 	"github.com/clastix/capsule/version"
 	// +kubebuilder:scaffold:imports
@@ -87,7 +88,9 @@ func main() {
 		"during Namespace creation, to name it using the selected Tenant name as prefix, separated by a dash. "+
 		"This is useful to avoid Namespace name collision in a public CaaS environment.")
 	flag.StringVar(&protectedNamespaceRegexpString, "protected-namespace-regex", "", "Disallow creation of namespaces, whose name matches this regexp")
+
 	opts := zap.Options{}
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
@@ -121,6 +124,8 @@ func main() {
 	_ = mgr.AddReadyzCheck("ping", healthz.Ping)
 	_ = mgr.AddHealthzCheck("ping", healthz.Ping)
 
+	setupLog.Info("starting with following options:", "metricsAddr", metricsAddr, "enableLeaderElection", enableLeaderElection, "forceTenantPrefix", forceTenantPrefix)
+
 	if err = (&controllers.TenantReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Tenant"),
@@ -133,7 +138,7 @@ func main() {
 
 	//webhooks
 	wl := make([]webhook.Webhook, 0)
-	wl = append(wl, &ingress.ExtensionIngress{}, &ingress.NetworkIngress{}, pvc.Webhook{}, &owner_reference.Webhook{}, &namespace_quota.Webhook{}, network_policies.Webhook{}, tenant_prefix.Webhook{ForceTenantPrefix: forceTenantPrefix, ProtectedNamespacesRegex: protectedNamespaceRegexp})
+	wl = append(wl, &ingress.ExtensionIngress{}, &ingress.NetworkIngress{}, pvc.Webhook{}, &owner_reference.Webhook{}, &namespace_quota.Webhook{}, network_policies.Webhook{}, tenant_prefix.Webhook{ForceTenantPrefix: forceTenantPrefix, ProtectedNamespacesRegex: protectedNamespaceRegexp}, &tenantName.Webhook{})
 	err = webhook.Register(mgr, capsuleGroup, wl...)
 	if err != nil {
 		setupLog.Error(err, "unable to setup webhooks")

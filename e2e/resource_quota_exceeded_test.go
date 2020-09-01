@@ -39,10 +39,13 @@ import (
 var _ = Describe("exceeding Tenant resource quota", func() {
 	tnt := &v1alpha1.Tenant{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenant-resources-changes",
+			Name: "tenantresourceschanges",
 		},
 		Spec: v1alpha1.TenantSpec{
-			Owner:          "bobby",
+			Owner: v1alpha1.OwnerSpec{
+				Name: "bobby",
+				Kind: "User",
+			},
 			StorageClasses: []string{},
 			IngressClasses: []string{},
 			LimitRanges: []corev1.LimitRangeSpec{

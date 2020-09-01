@@ -29,10 +29,10 @@ import (
 	"github.com/clastix/capsule/api/v1alpha1"
 )
 
-var _ = Describe("creating a Namespace with Tenant selector", func() {
+var _ = Describe("creating a Namespace with --force-tenant-name flag", func() {
 	t1 := &v1alpha1.Tenant{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenantone",
+			Name: "first",
 		},
 		Spec: v1alpha1.TenantSpec{
 			Owner: v1alpha1.OwnerSpec{
@@ -49,7 +49,7 @@ var _ = Describe("creating a Namespace with Tenant selector", func() {
 	}
 	t2 := &v1alpha1.Tenant{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenanttwo",
+			Name: "second",
 		},
 		Spec: v1alpha1.TenantSpec{
 			Owner: v1alpha1.OwnerSpec{
@@ -65,6 +65,8 @@ var _ = Describe("creating a Namespace with Tenant selector", func() {
 		},
 	}
 	JustBeforeEach(func() {
+		t1.ResourceVersion = ""
+		t2.ResourceVersion = ""
 		Expect(k8sClient.Create(context.TODO(), t1)).Should(Succeed())
 		Expect(k8sClient.Create(context.TODO(), t2)).Should(Succeed())
 	})
@@ -72,16 +74,17 @@ var _ = Describe("creating a Namespace with Tenant selector", func() {
 		Expect(k8sClient.Delete(context.TODO(), t1)).Should(Succeed())
 		Expect(k8sClient.Delete(context.TODO(), t2)).Should(Succeed())
 	})
-	It("should be assigned to the selected Tenant", func() {
-		ns := NewNamespace("tenant-2-ns")
-		By("assigning to the Namespace the Capsule Tenant label", func() {
-			l, err := v1alpha1.GetTypeLabel(&v1alpha1.Tenant{})
-			Expect(err).ToNot(HaveOccurred())
-			ns.Labels = map[string]string{
-				l: t2.Name,
-			}
-		})
-		NamespaceCreationShouldSucceed(ns, t2, defaultTimeoutInterval)
-		NamespaceShouldBeManagedByTenant(ns, t2, defaultTimeoutInterval)
+	It("should fail", func() {
+		args := append(defaulManagerPodArgs, []string{"--force-tenant-prefix"}...)
+		ModifyCapsuleManagerPodArgs(args)
+		ns := NewNamespace("test")
+		NamespaceCreationShouldNotSucceed(ns, t1, podRecreationTimeoutInterval)
+	})
+	It("should be assigned to the second Tenant", func() {
+		ns := NewNamespace("second-test")
+		NamespaceCreationShouldSucceed(ns, t2, podRecreationTimeoutInterval)
+		NamespaceShouldBeManagedByTenant(ns, t2, podRecreationTimeoutInterval)
+		args := defaulManagerPodArgs
+		ModifyCapsuleManagerPodArgs(args)
 	})
 })

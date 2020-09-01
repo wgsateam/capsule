@@ -32,7 +32,10 @@ var _ = Describe("creating a Namespace with --protected-namespace-regex enabled"
 			Name: "tenantprotectednamespace",
 		},
 		Spec: v1alpha1.TenantSpec{
-			Owner:          "alice",
+			Owner: v1alpha1.OwnerSpec{
+				Name: "alice",
+				Kind: "User",
+			},
 			StorageClasses: []string{},
 			IngressClasses: []string{},
 			LimitRanges:    []corev1.LimitRangeSpec{},

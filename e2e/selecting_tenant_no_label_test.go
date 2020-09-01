@@ -29,15 +29,15 @@ import (
 	"github.com/clastix/capsule/api/v1alpha1"
 )
 
-var _ = Describe("creating a Namespace with Tenant selector", func() {
+var _ = Describe("creating a Namespace without a Tenant selector", func() {
 	t1 := &v1alpha1.Tenant{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenantone",
+			Name: "atenantone",
 		},
 		Spec: v1alpha1.TenantSpec{
 			Owner: v1alpha1.OwnerSpec{
 				Name: "john",
-				Kind: "User",
+				Kind: "Group",
 			},
 			StorageClasses: []string{},
 			IngressClasses: []string{},
@@ -54,7 +54,24 @@ var _ = Describe("creating a Namespace with Tenant selector", func() {
 		Spec: v1alpha1.TenantSpec{
 			Owner: v1alpha1.OwnerSpec{
 				Name: "john",
-				Kind: "User",
+				Kind: "Group",
+			},
+			StorageClasses: []string{},
+			IngressClasses: []string{},
+			LimitRanges:    []corev1.LimitRangeSpec{},
+			NamespaceQuota: 10,
+			NodeSelector:   map[string]string{},
+			ResourceQuota:  []corev1.ResourceQuotaSpec{},
+		},
+	}
+	t3 := &v1alpha1.Tenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "tenantthree",
+		},
+		Spec: v1alpha1.TenantSpec{
+			Owner: v1alpha1.OwnerSpec{
+				Name: "john",
+				Kind: "Group",
 			},
 			StorageClasses: []string{},
 			IngressClasses: []string{},
@@ -67,21 +84,16 @@ var _ = Describe("creating a Namespace with Tenant selector", func() {
 	JustBeforeEach(func() {
 		Expect(k8sClient.Create(context.TODO(), t1)).Should(Succeed())
 		Expect(k8sClient.Create(context.TODO(), t2)).Should(Succeed())
+		Expect(k8sClient.Create(context.TODO(), t3)).Should(Succeed())
 	})
 	JustAfterEach(func() {
 		Expect(k8sClient.Delete(context.TODO(), t1)).Should(Succeed())
 		Expect(k8sClient.Delete(context.TODO(), t2)).Should(Succeed())
+		Expect(k8sClient.Delete(context.TODO(), t3)).Should(Succeed())
 	})
-	It("should be assigned to the selected Tenant", func() {
-		ns := NewNamespace("tenant-2-ns")
-		By("assigning to the Namespace the Capsule Tenant label", func() {
-			l, err := v1alpha1.GetTypeLabel(&v1alpha1.Tenant{})
-			Expect(err).ToNot(HaveOccurred())
-			ns.Labels = map[string]string{
-				l: t2.Name,
-			}
-		})
-		NamespaceCreationShouldSucceed(ns, t2, defaultTimeoutInterval)
-		NamespaceShouldBeManagedByTenant(ns, t2, defaultTimeoutInterval)
+	It("should be assigned to the first Tenant", func() {
+		ns := NewNamespace("tenant-1-ns")
+		NamespaceCreationShouldSucceed(ns, t3, defaultTimeoutInterval)
+		NamespaceShouldBeManagedByTenant(ns, t1, defaultTimeoutInterval)
 	})
 })

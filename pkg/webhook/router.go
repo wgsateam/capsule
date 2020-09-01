@@ -56,8 +56,9 @@ type handlerRouter struct {
 }
 
 func (r *handlerRouter) Handle(ctx context.Context, req admission.Request) admission.Response {
-	if !utils.UserGroupList(req.UserInfo.Groups).IsInCapsuleGroup(r.capsuleGroup) {
-		// not a Capsule user, can be skipped
+
+	if !utils.UserGroupList(req.UserInfo.Groups).IsInCapsuleGroup(r.capsuleGroup) && req.Kind.Kind != "Tenant" {
+		// not a Capsule user, not a tenant kind, can be skipped
 		return admission.Allowed("")
 	}
 
