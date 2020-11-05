@@ -17,8 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"github.com/clastix/capsule/controllers/service_labels"
+	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"os"
 	"regexp"
 	goRuntime "runtime"
@@ -43,7 +46,6 @@ import (
 	"github.com/clastix/capsule/pkg/webhook/network_policies"
 	"github.com/clastix/capsule/pkg/webhook/owner_reference"
 	"github.com/clastix/capsule/pkg/webhook/pvc"
-	"github.com/clastix/capsule/pkg/webhook/service_labels"
 	"github.com/clastix/capsule/pkg/webhook/tenant"
 	"github.com/clastix/capsule/pkg/webhook/tenant_prefix"
 	"github.com/clastix/capsule/pkg/webhook/utils"
@@ -149,7 +151,6 @@ func main() {
 		owner_reference.Webhook(utils.InCapsuleGroup(capsuleGroup, owner_reference.Handler(forceTenantPrefix))),
 		namespace_quota.Webhook(utils.InCapsuleGroup(capsuleGroup, namespace_quota.Handler())),
 		network_policies.Webhook(utils.InCapsuleGroup(capsuleGroup, network_policies.Handler())),
-		service_labels.Webhook(utils.InCapsuleGroup(capsuleGroup, service_labels.Handler())),
 		tenant_prefix.Webhook(utils.InCapsuleGroup(capsuleGroup, tenant_prefix.Handler(forceTenantPrefix, protectedNamespaceRegexp))),
 		tenant.Webhook(tenant.Handler()),
 	)
@@ -188,6 +189,34 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
 		os.Exit(1)
+	}
+
+	if err = (&service_labels.ServicesLabelsReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ServiceLabels"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ServiceLabels")
+		os.Exit(1)
+	}
+	if err = (&service_labels.EndpointsLabelsReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("EndpointLabels"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "EndpointLabels")
+		os.Exit(1)
+	}
+	eps := &discoveryv1beta1.EndpointSliceList{}
+	if err = mgr.GetClient().List(context.TODO(), eps); err == nil {
+		if err = (&service_labels.EndpointSlicesLabelsReconciler{
+			Client: mgr.GetClient(),
+			Log:    ctrl.Log.WithName("controllers").WithName("EndpointSliceLabels"),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "EndpointSliceLabels")
+			os.Exit(1)
+		}
 	}
 
 	if err = indexer.AddToManager(mgr); err != nil {
