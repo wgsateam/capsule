@@ -32,7 +32,6 @@ func (r EndpointsLabelsReconciler) Reconcile(ctx context.Context, request ctrl.R
 	if err != nil {
 		switch err.(type) {
 		case *NonTenantObject, *NoServicesMetadata:
-			r.Log.Info(err.Error())
 			return reconcile.Result{}, nil
 		default:
 			r.Log.Error(err, "Cannot sync Endpoints labels")

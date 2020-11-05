@@ -17,11 +17,9 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"github.com/clastix/capsule/controllers/service_labels"
-	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"os"
 	"regexp"
 	goRuntime "runtime"
@@ -128,6 +126,12 @@ func main() {
 		}
 	}
 
+	majorVer, minorVer, _, err := utils.GetK8sVersion()
+	if err != nil {
+		setupLog.Error(err, "unable to get kubernetes version")
+		os.Exit(1)
+	}
+
 	_ = mgr.AddReadyzCheck("ping", healthz.Ping)
 	_ = mgr.AddHealthzCheck("ping", healthz.Ping)
 
@@ -207,16 +211,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "EndpointLabels")
 		os.Exit(1)
 	}
-	eps := &discoveryv1beta1.EndpointSliceList{}
-	if err = mgr.GetClient().List(context.TODO(), eps); err == nil {
-		if err = (&service_labels.EndpointSlicesLabelsReconciler{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("controllers").WithName("EndpointSliceLabels"),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "EndpointSliceLabels")
-			os.Exit(1)
-		}
+	if err = (&service_labels.EndpointSlicesLabelsReconciler{
+		Client:       mgr.GetClient(),
+		Log:          ctrl.Log.WithName("controllers").WithName("EndpointSliceLabels"),
+		Scheme:       mgr.GetScheme(),
+		VersionMinor: minorVer,
+		VersionMajor: majorVer,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "EndpointSliceLabels")
 	}
 
 	if err = indexer.AddToManager(mgr); err != nil {

@@ -2,12 +2,9 @@ package service_labels
 
 import (
 	"context"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
-
 	"github.com/go-logr/logr"
-
-	corev1 "k8s.io/api/core/v1"
-
+	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,13 +15,20 @@ import (
 
 type EndpointSlicesLabelsReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log          logr.Logger
+	Scheme       *runtime.Scheme
+	VersionMinor int
+	VersionMajor int
 }
 
 func (r *EndpointSlicesLabelsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.VersionMajor == 1 && r.VersionMinor == 16 {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&discoveryv1alpha1.EndpointSlice{}).
+			Complete(r)
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Endpoints{}).
+		For(&discoveryv1beta1.EndpointSlice{}).
 		Complete(r)
 }
 
@@ -41,17 +45,31 @@ func (r EndpointSlicesLabelsReconciler) Reconcile(ctx context.Context, request c
 		}
 	}
 
-	eps := &discoveryv1alpha1.EndpointSlice{}
-	err = r.Client.Get(ctx, request.NamespacedName, eps)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	if r.VersionMajor == 1 && r.VersionMinor == 16 {
+		eps := &discoveryv1alpha1.EndpointSlice{}
+		err = r.Client.Get(ctx, request.NamespacedName, eps)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, eps, func() (err error) {
-		eps.ObjectMeta.Labels = sync(eps.ObjectMeta.Labels, tenant)
-		eps.ObjectMeta.Annotations = sync(eps.ObjectMeta.Annotations, tenant)
-		return nil
-	})
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, eps, func() (err error) {
+			eps.ObjectMeta.Labels = sync(eps.ObjectMeta.Labels, tenant)
+			eps.ObjectMeta.Annotations = sync(eps.ObjectMeta.Annotations, tenant)
+			return nil
+		})
+	} else {
+		eps := &discoveryv1beta1.EndpointSlice{}
+		err = r.Client.Get(ctx, request.NamespacedName, eps)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, eps, func() (err error) {
+			eps.ObjectMeta.Labels = sync(eps.ObjectMeta.Labels, tenant)
+			eps.ObjectMeta.Annotations = sync(eps.ObjectMeta.Annotations, tenant)
+			return nil
+		})
+	}
 
 	return reconcile.Result{}, err
 }
