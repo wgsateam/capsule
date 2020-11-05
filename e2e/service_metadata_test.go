@@ -17,7 +17,7 @@ package e2e
 
 import (
 	"context"
-
+	"github.com/clastix/capsule/api/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -27,8 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/clastix/capsule/api/v1alpha1"
 )
 
 var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with additional metadata", func() {
@@ -76,12 +74,8 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 		},
 	}
 	JustBeforeEach(func() {
-		EventuallyCreation(func() error {
-			return k8sClient.Create(context.TODO(), tnt)
-		}).Should(Succeed())
-		EventuallyCreation(func() error {
-			return k8sClient.Create(context.TODO(), epsCR)
-		}).Should(Succeed())
+		Expect(k8sClient.Create(context.TODO(), tnt)).Should(Succeed())
+		Expect(k8sClient.Create(context.TODO(), epsCR)).Should(Succeed())
 	})
 	JustAfterEach(func() {
 		Expect(k8sClient.Delete(context.TODO(), tnt)).Should(Succeed())
@@ -146,23 +140,45 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 			_, err = cs.CoreV1().Endpoints(ns.GetName()).Create(context.TODO(), ep, metav1.CreateOptions{})
 			return
 		}, defaultTimeoutInterval, defaultPollInterval).Should(Succeed())
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: svc.GetName(), Namespace: ns.GetName()}, svc)).Should(Succeed())
-		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: ep.GetName(), Namespace: ns.GetName()}, ep)).Should(Succeed())
 
+		By("checking number of labels on service", func() {
+				Eventually(func() (labelsCnt int) {
+					k8sClient.Get(context.TODO(), types.NamespacedName{Name: svc.GetName(), Namespace: ns.GetName()}, svc)
+					return len(svc.GetLabels())
+				},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+		})
 		By("checking additional labels on service", func() {
 			for _, l := range tnt.Spec.ServicesMetadata.AdditionalLabels {
 				Expect(svc.Labels).Should(ContainElement(l))
 			}
+		})
+		By("checking number of annotations on service", func() {
+			Eventually(func() (labelsCnt int) {
+				k8sClient.Get(context.TODO(), types.NamespacedName{Name: svc.GetName(), Namespace: ns.GetName()}, svc)
+				return len(svc.GetAnnotations())
+			},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 		})
 		By("checking additional annotations service", func() {
 			for _, a := range tnt.Spec.NamespacesMetadata.AdditionalAnnotations {
 				Expect(svc.Annotations).Should(ContainElement(a))
 			}
 		})
+		By("checking number of labels on endpoint", func() {
+			Eventually(func() (labelsCnt int) {
+				k8sClient.Get(context.TODO(), types.NamespacedName{Name: ep.GetName(), Namespace: ns.GetName()}, ep)
+				return len(ep.GetLabels())
+			},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+		})
 		By("checking additional labels on endpoint", func() {
 			for _, l := range tnt.Spec.ServicesMetadata.AdditionalLabels {
 				Expect(ep.Labels).Should(ContainElement(l))
 			}
+		})
+		By("checking number of annotations on endpoint", func() {
+			Eventually(func() (labelsCnt int) {
+				k8sClient.Get(context.TODO(), types.NamespacedName{Name: ep.GetName(), Namespace: ns.GetName()}, ep)
+				return len(ep.GetAnnotations())
+			},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 		})
 		By("checking additional annotations endpoint", func() {
 			for _, a := range tnt.Spec.NamespacesMetadata.AdditionalAnnotations {
@@ -195,11 +211,22 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 				_, err = cs.DiscoveryV1beta1().EndpointSlices(ns.GetName()).Create(context.TODO(), eps.(*discoveryv1beta1.EndpointSlice), metav1.CreateOptions{})
 				return
 			}, defaultTimeoutInterval, defaultPollInterval).Should(Succeed())
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: eps.GetName(), Namespace: ns.GetName()}, eps)).Should(Succeed())
+			By("checking number of labels on endpointslice", func() {
+				Eventually(func() (labelsCnt int) {
+					k8sClient.Get(context.TODO(), types.NamespacedName{Name: eps.GetName(), Namespace: ns.GetName()}, eps)
+					return len(eps.GetLabels())
+				},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+			})
 			By("checking additional annotations endpointslices", func() {
 				for _, a := range tnt.Spec.NamespacesMetadata.AdditionalAnnotations {
 					Expect(eps.GetAnnotations()).Should(ContainElement(a))
 				}
+			})
+			By("checking number of annotations on endpointslice", func() {
+				Eventually(func() (labelsCnt int) {
+					k8sClient.Get(context.TODO(), types.NamespacedName{Name: eps.GetName(), Namespace: ns.GetName()}, eps)
+					return len(eps.GetAnnotations())
+				},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 			})
 			By("checking additional labels on endpointslices", func() {
 				for _, l := range tnt.Spec.ServicesMetadata.AdditionalLabels {

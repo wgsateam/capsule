@@ -36,8 +36,6 @@ import (
 	capsulewebhook "github.com/clastix/capsule/pkg/webhook"
 )
 
-// +kubebuilder:webhook:path=/mutate-v1-service-labels,mutating=true,failurePolicy=ignore,groups="";discovery.k8s.io,resources=services;endpoints;endpointslices,verbs=create;update,versions=v1;v1beta1,name=service.labels.capsule.clastix.io
-
 type webhook struct {
 	handler capsulewebhook.Handler
 }
