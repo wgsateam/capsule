@@ -1,56 +1,40 @@
+/*
+Copyright 2020 Clastix Labs.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package service_labels
 
 import (
-	"context"
-
 	"github.com/go-logr/logr"
-
 	corev1 "k8s.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type ServicesLabelsReconciler struct {
-	client.Client
+	abstractServiceLabelsReconciler
+
 	Log    logr.Logger
-	Scheme *runtime.Scheme
 }
 
 func (r *ServicesLabelsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.abstractServiceLabelsReconciler = abstractServiceLabelsReconciler{
+		obj:    &corev1.Service{},
+		scheme: mgr.GetScheme(),
+		log:    r.Log,
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Service{}).
+		For(r.abstractServiceLabelsReconciler.obj, r.abstractServiceLabelsReconciler.forOptionPerInstanceName()).
 		Complete(r)
-}
-
-func (r ServicesLabelsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	tenant, err := getTenant(ctx, request.NamespacedName, r.Client)
-	if err != nil {
-		switch err.(type) {
-		case *NonTenantObject, *NoServicesMetadata:
-			r.Log.Info(err.Error())
-			return reconcile.Result{}, nil
-		default:
-			r.Log.Error(err, "Cannot sync Service labels")
-			return reconcile.Result{}, err
-		}
-	}
-
-	service := &corev1.Service{}
-	err = r.Client.Get(ctx, request.NamespacedName, service)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, service, func() (err error) {
-		service.ObjectMeta.Labels = sync(service.ObjectMeta.Labels, tenant)
-		service.ObjectMeta.Annotations = sync(service.ObjectMeta.Annotations, tenant)
-		return nil
-	})
-
-	return reconcile.Result{}, err
 }

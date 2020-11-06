@@ -1,75 +1,51 @@
+/*
+Copyright 2020 Clastix Labs.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package service_labels
 
 import (
-	"context"
 	"github.com/go-logr/logr"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	discoveryv1beta1 "k8s.io/api/discovery/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type EndpointSlicesLabelsReconciler struct {
-	client.Client
+	abstractServiceLabelsReconciler
+
 	Log          logr.Logger
-	Scheme       *runtime.Scheme
 	VersionMinor int
 	VersionMajor int
 }
 
 func (r *EndpointSlicesLabelsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.scheme = mgr.GetScheme()
+	r.abstractServiceLabelsReconciler = abstractServiceLabelsReconciler{
+		scheme: mgr.GetScheme(),
+		log:    r.Log,
+	}
+
 	if r.VersionMajor == 1 && r.VersionMinor == 16 {
+		r.abstractServiceLabelsReconciler.obj = &discoveryv1alpha1.EndpointSlice{}
 		return ctrl.NewControllerManagedBy(mgr).
-			For(&discoveryv1alpha1.EndpointSlice{}).
+			For(r.abstractServiceLabelsReconciler.obj, r.abstractServiceLabelsReconciler.forOptionPerInstanceName()).
 			Complete(r)
 	}
+	r.abstractServiceLabelsReconciler.obj = &discoveryv1beta1.EndpointSlice{}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&discoveryv1beta1.EndpointSlice{}).
+		For(r.obj, r.abstractServiceLabelsReconciler.forOptionPerInstanceName()).
 		Complete(r)
-}
-
-func (r EndpointSlicesLabelsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	tenant, err := getTenant(ctx, request.NamespacedName, r.Client)
-	if err != nil {
-		switch err.(type) {
-		case *NonTenantObject, *NoServicesMetadata:
-			r.Log.Info(err.Error())
-			return reconcile.Result{}, nil
-		default:
-			r.Log.Error(err, "Cannot sync EndpointSlices labels")
-			return reconcile.Result{}, err
-		}
-	}
-
-	if r.VersionMajor == 1 && r.VersionMinor == 16 {
-		eps := &discoveryv1alpha1.EndpointSlice{}
-		err = r.Client.Get(ctx, request.NamespacedName, eps)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, eps, func() (err error) {
-			eps.ObjectMeta.Labels = sync(eps.ObjectMeta.Labels, tenant)
-			eps.ObjectMeta.Annotations = sync(eps.ObjectMeta.Annotations, tenant)
-			return nil
-		})
-	} else {
-		eps := &discoveryv1beta1.EndpointSlice{}
-		err = r.Client.Get(ctx, request.NamespacedName, eps)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		_, err = controllerutil.CreateOrUpdate(ctx, r.Client, eps, func() (err error) {
-			eps.ObjectMeta.Labels = sync(eps.ObjectMeta.Labels, tenant)
-			eps.ObjectMeta.Annotations = sync(eps.ObjectMeta.Annotations, tenant)
-			return nil
-		})
-	}
-
-	return reconcile.Result{}, err
 }

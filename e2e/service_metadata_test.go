@@ -17,7 +17,7 @@ package e2e
 
 import (
 	"context"
-	"github.com/clastix/capsule/api/v1alpha1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/clastix/capsule/api/v1alpha1"
 )
 
 var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with additional metadata", func() {
@@ -142,10 +144,10 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 		}, defaultTimeoutInterval, defaultPollInterval).Should(Succeed())
 
 		By("checking number of labels on service", func() {
-				Eventually(func() (labelsCnt int) {
-					k8sClient.Get(context.TODO(), types.NamespacedName{Name: svc.GetName(), Namespace: ns.GetName()}, svc)
-					return len(svc.GetLabels())
-				},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+			Eventually(func() (labelsCnt int) {
+				k8sClient.Get(context.TODO(), types.NamespacedName{Name: svc.GetName(), Namespace: ns.GetName()}, svc)
+				return len(svc.GetLabels())
+			}, defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 		})
 		By("checking additional labels on service", func() {
 			for _, l := range tnt.Spec.ServicesMetadata.AdditionalLabels {
@@ -156,7 +158,7 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 			Eventually(func() (labelsCnt int) {
 				k8sClient.Get(context.TODO(), types.NamespacedName{Name: svc.GetName(), Namespace: ns.GetName()}, svc)
 				return len(svc.GetAnnotations())
-			},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+			}, defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 		})
 		By("checking additional annotations service", func() {
 			for _, a := range tnt.Spec.NamespacesMetadata.AdditionalAnnotations {
@@ -167,7 +169,7 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 			Eventually(func() (labelsCnt int) {
 				k8sClient.Get(context.TODO(), types.NamespacedName{Name: ep.GetName(), Namespace: ns.GetName()}, ep)
 				return len(ep.GetLabels())
-			},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+			}, defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 		})
 		By("checking additional labels on endpoint", func() {
 			for _, l := range tnt.Spec.ServicesMetadata.AdditionalLabels {
@@ -178,7 +180,7 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 			Eventually(func() (labelsCnt int) {
 				k8sClient.Get(context.TODO(), types.NamespacedName{Name: ep.GetName(), Namespace: ns.GetName()}, ep)
 				return len(ep.GetAnnotations())
-			},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+			}, defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 		})
 		By("checking additional annotations endpoint", func() {
 			for _, a := range tnt.Spec.NamespacesMetadata.AdditionalAnnotations {
@@ -215,7 +217,7 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 				Eventually(func() (labelsCnt int) {
 					k8sClient.Get(context.TODO(), types.NamespacedName{Name: eps.GetName(), Namespace: ns.GetName()}, eps)
 					return len(eps.GetLabels())
-				},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+				}, defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 			})
 			By("checking additional annotations endpointslices", func() {
 				for _, a := range tnt.Spec.NamespacesMetadata.AdditionalAnnotations {
@@ -226,7 +228,7 @@ var _ = Describe("creating a Service/Endpoint/EndpointSlice for a Tenant with ad
 				Eventually(func() (labelsCnt int) {
 					k8sClient.Get(context.TODO(), types.NamespacedName{Name: eps.GetName(), Namespace: ns.GetName()}, eps)
 					return len(eps.GetAnnotations())
-				},defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
+				}, defaultTimeoutInterval, defaultPollInterval).Should(Equal(2))
 			})
 			By("checking additional labels on endpointslices", func() {
 				for _, l := range tnt.Spec.ServicesMetadata.AdditionalLabels {

@@ -19,10 +19,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/clastix/capsule/controllers/service_labels"
 	"os"
 	"regexp"
 	goRuntime "runtime"
+
+	"github.com/clastix/capsule/controllers/service_labels"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -196,25 +197,19 @@ func main() {
 	}
 
 	if err = (&service_labels.ServicesLabelsReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ServiceLabels"),
-		Scheme: mgr.GetScheme(),
+		Log: ctrl.Log.WithName("controllers").WithName("ServiceLabels"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceLabels")
 		os.Exit(1)
 	}
 	if err = (&service_labels.EndpointsLabelsReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("EndpointLabels"),
-		Scheme: mgr.GetScheme(),
+		Log: ctrl.Log.WithName("controllers").WithName("EndpointLabels"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EndpointLabels")
 		os.Exit(1)
 	}
 	if err = (&service_labels.EndpointSlicesLabelsReconciler{
-		Client:       mgr.GetClient(),
 		Log:          ctrl.Log.WithName("controllers").WithName("EndpointSliceLabels"),
-		Scheme:       mgr.GetScheme(),
 		VersionMinor: minorVer,
 		VersionMajor: majorVer,
 	}).SetupWithManager(mgr); err != nil {
